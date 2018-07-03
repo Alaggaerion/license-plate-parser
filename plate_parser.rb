@@ -10,7 +10,7 @@ class Parser
   
   def initialize(csv_file, state)
     @csv_file = csv_file
-    @state = state
+    @state = state.upcase
     @plate_array = []
   end
   
@@ -22,7 +22,7 @@ class Parser
   def write_csv
     CSV.open("output.csv", "wb", :write_headers => true, :headers => ["Plate Number","Make","Model", "Year"]) do |csv|
       @plate_array.each do |plate|
-        url = "https://www.faxvin.com/license-plate-lookup/result?plate=#{plate}&state=CT"
+        url = "https://www.faxvin.com/license-plate-lookup/result?plate=#{plate}&state=#{@state}"
         browser = Watir::Browser.new
         browser.goto url
 
@@ -64,7 +64,7 @@ class Parser
 end
 
 def execute
-  parser = Parser.new("plates.csv", "CT")
+  parser = Parser.new(ARGV[0], ARGV[1])
   parser.read_csv
   parser.write_csv
 end
