@@ -4,47 +4,75 @@ require 'nikkou'
 require 'csv'
 require 'pry'
 
-def read_csv
-  array = []
-  CSV.foreach("plates.csv") { |row| array.push(row.first) }
-  array
-end
+class Parser
+  attr_reader :csv_file, :state
+  attr_accessor :plate_array
+  
+  def initialize(csv_file, state)
+    @csv_file = csv_file
+    @state = state
+    @plate_array = []
+  end
+  
+  def read_csv
+    @plate_array = []
+    CSV.foreach(@csv_file) { |row| @plate_array.push(row.first) }
+  end
+  
+  def write_csv
+    CSV.open("output.csv", "wb", :write_headers => true, :headers => ["Plate Number","Make","Model", "Year"]) do |csv|
+      @plate_array.each do |plate|
+        url = "https://www.faxvin.com/license-plate-lookup/result?plate=#{plate}&state=CT"
+        browser = Watir::Browser.new
+        browser.goto url
 
-plate_array = read_csv
+        browser.wait_until(timeout: 15) do |browser|
+          puts ""
+          puts "WAITING 15 SECONDS FOR WEBSITE TO FULLY LOAD..."
+          sleep 15
+          if browser.url != "https://www.faxvin.com/license-plate-lookup?error"
+            parsed_content = Nokogiri::HTML(browser.html)
 
-CSV.open("out-4.csv", "wb", :write_headers => true, :headers => ["Plate Number","Make","Model", "Year"]) do |csv|
-  plate_array.each do |plate|
-    url = "https://www.faxvin.com/license-plate-lookup/result?plate=#{plate}&state=CT"
-    puts url
-    browser = Watir::Browser.new
-    browser.goto url
+            make = parsed_content.search('b')[1].text
+            model = parsed_content.search('b')[2].text
+            year = parsed_content.search('b')[3].text
 
-    browser.wait_until(timeout: 15) do |browser|
-      sleep 15
-      if browser.url != "https://www.faxvin.com/license-plate-lookup?error"
-        parsed_content = Nokogiri::HTML(browser.html)
+            csv << [plate, make, model, year]
 
-        make = parsed_content.search('b')[1].text
-        model = parsed_content.search('b')[2].text
-        year = parsed_content.search('b')[3].text
-
-        csv << [plate, make, model, year]
-
-        puts "Plate Number: #{plate}"
-        puts "Make: #{make}"
-        puts "Model: #{model}"
-        puts "Year: #{year}"
-        puts "-------------------------------"
-        puts ""
-      else
-        puts "Page not found"
-        puts "-------------------------------"
-        puts ""
+            puts "-------------------------------------------------------------------------------"
+            puts "URL: #{url}"
+            puts "Plate Number: #{plate}"
+            puts "Make: #{make}"
+            puts "Model: #{model}"
+            puts "Year: #{year}"
+            puts "-------------------------------------------------------------------------------"
+            puts ""
+          else
+            puts "-------------------------------------------------------------------------------"
+            puts "URL: #{url}"
+            puts "Plate Number: #{plate}"
+            puts "PLATE NOT FOUND"
+            puts "-------------------------------------------------------------------------------"
+            puts ""
+          end
+          browser.close
+        end
       end
-      browser.close
     end
   end
+  
 end
+
+def execute
+  parser = Parser.new("plates.csv", "CT")
+  parser.read_csv
+  parser.write_csv
+end
+
+execute
+
+
+
 
 
 
